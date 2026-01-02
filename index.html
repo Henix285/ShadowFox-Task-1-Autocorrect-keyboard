@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TextFlow Assist - Smart Writing</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0a1520 0%, #152938 50%, #1f3f52 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 850px;
+    overflow: hidden;
+}
+
+/* Header */
+.header {
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    padding: 25px 30px;
+    text-align: center;
+    color: white;
+}
+
+.header-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    margin-bottom: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+}
+
+.header p {
+    font-size: 14px;
+    opacity: 0.95;
+    font-weight: 300;
+}
+
+/* Editor Section */
+.editor-section {
+    padding: 25px;
+}
+
+.editor-wrapper {
+    position: relative;
+}
+
+#editor {
+    width: 100%;
+    min-height: 280px;
+    padding: 20px;
+    border: 2px solid #94a3b8;
+    border-radius: 14px;
+    font-size: 16px;
+    line-height: 1.7;
+    background: #ffffff;
+    transition: all 0.3s ease;
+    resize: vertical;
+    font-family: 'Inter', -apple-system, sans-serif;
+    outline: none;
+}
+
+#editor:focus {
+    border-color: #2c5364;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(44, 83, 100, 0.15);
+}
+
+#editor::placeholder {
+    color: #9ca3af;
+}
+
+/* Highlighted overlay for mistakes */
+.highlight-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    padding: 20px;
+    border: 2px solid transparent;
+    border-radius: 14px;
+    font-size: 16px;
+    line-height: 1.7;
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: transparent;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+}
+
+.mistake-highlight {
+    background: rgba(239, 68, 68, 0.25);
+    border-bottom: 2px wavy #ef4444;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.2s;
+}
+
+.mistake-highlight:hover {
+    background: rgba(239, 68, 68, 0.4);
+}
+
+/* Prediction Box */
+.prediction-box {
+    margin-top: 20px;
+    padding: 22px;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    color: white;
+    box-shadow: 0 8px 20px rgba(15, 32, 39, 0.3);
+}
+
+.prediction-box:hover:not(.disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 32, 39, 0.4);
+}
+
+.prediction-box.disabled {
+    background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.prediction-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    opacity: 0.95;
+    margin-bottom: 7px;
+    font-weight: 600;
+}
+
+.prediction-word {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* Processing Indicator */
+.processing {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    color: #2c5364;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.processing.show {
+    display: flex;
+}
+
+.processing-dot {
+    width: 7px;
+    height: 7px;
+    background: #2c5364;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 24px;
+    }
+    
+    .header-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 22px;
+    }
+    
+    .container {
+        max-width: 100%;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-icon">✍️</div>
+        <h1>TextFlow Assist</h1>
+        <p>Smart writing with real-time spell-check and next word predictions</p>
+    </div>
+    
+    <!-- Editor Section -->
+    <div class="editor-section">
+        <div class="editor-wrapper">
+            <textarea 
+                id="editor" 
+                placeholder="Start typing here... Click on any misspelled word to correct it automatically"></textarea>
+            <div id="highlight-overlay" class="highlight-overlay"></div>
+        </div>
+        
+        <!-- Processing Indicator -->
+        <div id="processing" class="processing">
+            <div class="processing-dot"></div>
+            <span>Processing...</span>
+        </div>
+        
+        <!-- Next Word Prediction -->
+        <div id="prediction-box" class="prediction-box disabled">
+            <div class="prediction-label">💡 Next Word Prediction</div>
+            <div class="prediction-word" id="prediction-word">Start typing...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_URL = "http://127.0.0.1:8000";
+
+const editor = document.getElementById("editor");
+const highlightOverlay = document.getElementById("highlight-overlay");
+const predictionBox = document.getElementById("prediction-box");
+const predictionWord = document.getElementById("prediction-word");
+const processing = document.getElementById("processing");
+
+let debounceTimer;
+let currentMistakes = [];
+
+// Check text with API
+async function checkText() {
+    const text = editor.value.trim();
+    
+    if (!text) {
+        predictionWord.textContent = "Start typing...";
+        predictionBox.classList.add("disabled");
+        highlightOverlay.innerHTML = "";
+        return;
+    }
+    
+    processing.classList.add("show");
+    
+    try {
+        const response = await fetch(`${API_URL}/live`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text })
+        });
+        
+        if (!response.ok) {
+            throw new Error("API request failed");
+        }
+        
+        const data = await response.json();
+        
+        // Update mistakes
+        currentMistakes = data.mistakes;
+        highlightMistakes(editor.value, data.mistakes);
+        
+        // Update prediction
+        if (data.next_word) {
+            predictionWord.textContent = data.next_word;
+            predictionBox.classList.remove("disabled");
+        } else {
+            predictionWord.textContent = "Keep typing...";
+            predictionBox.classList.add("disabled");
+        }
+        
+    } catch (error) {
+        console.error("Error:", error);
+        predictionBox.classList.add("disabled");
+    } finally {
+        processing.classList.remove("show");
+    }
+}
+
+// Highlight mistakes in overlay
+function highlightMistakes(text, mistakes) {
+    if (!mistakes.length) {
+        highlightOverlay.innerHTML = "";
+        return;
+    }
+    
+    const words = text.split(/(\s+)/);
+    let html = "";
+    
+    words.forEach(word => {
+        const cleanWord = word.toLowerCase().replace(/[^\w]/g, "");
+        if (mistakes.includes(cleanWord)) {
+            html += `<span class="mistake-highlight" data-word="${cleanWord}">${word}</span>`;
+        } else {
+            html += word;
+        }
+    });
+    
+    highlightOverlay.innerHTML = html;
+    
+    // Add click listeners to all mistake highlights
+    highlightOverlay.querySelectorAll('.mistake-highlight').forEach(span => {
+        span.addEventListener('click', function() {
+            correctWord(this.getAttribute('data-word'));
+        });
+    });
+}
+
+// Correct a word
+async function correctWord(word) {
+    try {
+        const response = await fetch(`${API_URL}/correct-word`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ word })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.corrected) {
+            return;
+        }
+        
+        // Replace first occurrence of the word (case-insensitive)
+        const regex = new RegExp(`\\b${word}\\b`, "i");
+        editor.value = editor.value.replace(regex, data.corrected);
+        
+        checkText();
+        
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
+// Insert predicted word
+function insertPrediction() {
+    if (predictionBox.classList.contains("disabled")) return;
+    
+    const word = predictionWord.textContent;
+    const cursorPos = editor.selectionStart;
+    const textBefore = editor.value.substring(0, cursorPos);
+    const textAfter = editor.value.substring(cursorPos);
+    
+    // Add space before word if needed
+    const needsSpace = textBefore.length > 0 && !textBefore.endsWith(" ");
+    const insertion = (needsSpace ? " " : "") + word + " ";
+    
+    editor.value = textBefore + insertion + textAfter;
+    editor.selectionStart = editor.selectionEnd = cursorPos + insertion.length;
+    
+    editor.focus();
+    checkText();
+}
+
+// Sync scroll between editor and overlay
+editor.addEventListener("scroll", () => {
+    highlightOverlay.scrollTop = editor.scrollTop;
+    highlightOverlay.scrollLeft = editor.scrollLeft;
+});
+
+// Event listeners
+editor.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(checkText, 500);
+});
+
+predictionBox.addEventListener("click", insertPrediction);
+
+// Keyboard shortcut: Tab to insert prediction
+editor.addEventListener("keydown", (e) => {
+    if (e.key === "Tab" && !predictionBox.classList.contains("disabled")) {
+        e.preventDefault();
+        insertPrediction();
+    }
+});
+
+// Initial check
+checkText();
+</script>
+
+</body>
+</html>
